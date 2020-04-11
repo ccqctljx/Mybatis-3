@@ -40,14 +40,27 @@ public class CacheKey implements Cloneable, Serializable {
     }
   };
 
+  // 乘数，固定初始值质数37，不会变
   private static final int DEFAULT_MULTIPLIER = 37;
+
+  // 当前hashCode值，初始值是质数17，
   private static final int DEFAULT_HASHCODE = 17;
 
+  // 乘数，默认值为质数37，不会变
   private final int multiplier;
+  // 当前hashCode值，默认值为质数17，
   private int hashcode;
+  // 所有更新对象的初始hashCode的和
   private long checksum;
+  // 更新的对象总数
   private int count;
-  // 8/21/2017 - Sonarlint flags this as needing to be marked transient.  While true if content is not serializable, this is not always true and thus should not be marked transient.
+
+  /*
+    8/21/2017 - Sonar lint flags this as needing to be marked transient.
+    While true if content is not serializable,
+    this is not always true and thus should not be marked transient.
+  */
+  // 已更新的所有 obj 的列表
   private List<Object> updateList;
 
   public CacheKey() {
@@ -67,14 +80,17 @@ public class CacheKey implements Cloneable, Serializable {
   }
 
   public void update(Object object) {
+    // 先计算传进来的这个 obj 的基础 HashCode，如果为空的话则是 1
     int baseHashCode = object == null ? 1 : ArrayUtil.hashCode(object);
-
+    // 记录更新个数
     count++;
+    // 计算 hashCode 的总和
     checksum += baseHashCode;
+    // 将基础 HashCode 跟更新个数相乘
     baseHashCode *= count;
-
+    // 最终得到新的 hashcode 为 固定数字 37 * 最新 hashcode 再加上 计算后的参数对象的 hashcode
     hashcode = multiplier * hashcode + baseHashCode;
-
+    // 将传进来的 obj 放到已更新列表中
     updateList.add(object);
   }
 

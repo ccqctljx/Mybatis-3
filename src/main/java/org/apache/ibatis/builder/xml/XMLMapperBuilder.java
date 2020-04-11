@@ -92,7 +92,7 @@ public class XMLMapperBuilder extends BaseBuilder {
   public void parse() {
     // 因为是公共方法，多处调用，所以这里先判断有没有加载过
     if (!configuration.isResourceLoaded(resource)) {
-      // 没加载过的话，先去加载资源
+      // 没加载过的话，先去加载资源，这里创建了 Cache 对象
       configurationElement(parser.evalNode("/mapper"));
       configuration.addLoadedResource(resource);
       bindMapperForNamespace();
@@ -115,6 +115,7 @@ public class XMLMapperBuilder extends BaseBuilder {
       }
       builderAssistant.setCurrentNamespace(namespace);
       // 这两行是开启二级缓存比较关键的两步
+      // 这一步拿了别人的 cache 对象 设置给自己了
       cacheRefElement(context.evalNode("cache-ref"));
       // 在这一步中构建了 Cache 对象
       cacheElement(context.evalNode("cache"));
@@ -122,7 +123,7 @@ public class XMLMapperBuilder extends BaseBuilder {
       parameterMapElement(context.evalNodes("/mapper/parameterMap"));
       // 解析 resultMap
       resultMapElements(context.evalNodes("/mapper/resultMap"));
-      // 解析每个 sql 标签（mapper 中有两种 sql，一种是 下面要解析的四打标签，还有直接用 sql 标签的）
+      // 解析每个 sql 标签（mapper 中有两种 sql，一种是 下面要解析的四大标签，还有直接用 sql 标签的）
       sqlElement(context.evalNodes("/mapper/sql"));
       // 解析四打标签，并放入 configuration 中，这里也会为每个开启缓存的 statement 设置上面生成好的缓存对象，也就是 Cache
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
@@ -211,14 +212,31 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void cacheElement(XNode context) {
     if (context != null) {
-      // 默认缓存类型为 PERPETUAL
+      // 如果不指定类型，则默认缓存类型设置​为 PERPETUAL
       String type = context.getStringAttribute("type", "PERPETUAL");
+      // typeAliasRegistry 内部维护了一个 HashMap 并且预设了很多类别名，例如 "byte" -> Byte.class
       Class<? extends Cache> typeClass = typeAliasRegistry.resolveAlias(type);
+      // eviction 意为驱逐、赶出。 这里则代表着 缓存清除策略，即如何清除无用的缓存
+      // 代码可以看到，默认是 LRU 即 移除最长时间不被使用的对象。
+      // 官网文档共设有四种如下：
+      /**
+        LRU – Least Recently Used: Removes objects that haven't been used for the longst period of time.（清除长时间不用的）
+        FIFO – First In First Out: Removes objects in the order that they entered the cache.（清除最开始放进去的）
+        SOFT – Soft Reference: Removes objects based on the garbage collector state and the rules of Soft References.（软引用式清除）
+        WEAK – Weak Reference: More aggressively removes objects based on the garbage collector state and rules of Weak References.（弱引用式清除）
+      */
       String eviction = context.getStringAttribute("eviction", "LRU");
       Class<? extends Cache> evictionClass = typeAliasRegistry.resolveAlias(eviction);
+      // 刷新间隔，单位 毫秒，代表一个合理的毫秒形式的时间段。默认情况是不设置，也就是没有刷新间隔，缓存仅仅调用 update 语句时刷新。
       Long flushInterval = context.getLongAttribute("flushInterval");
+      // 引用数目，要记住你缓存的对象数目和你运行环境的可用内存资源数目。默认值是1024。
       Integer size = context.getIntAttribute("size");
+
+      // 下面是针对缓存对象实例是否只读的配置
+      // 只读的缓存会给所有调用者返回缓存对象的相同实例。因此这些对象不能被修改（一旦修改，别人取到的也是修改后的）。这提供了很重要的性能优势。
+      // 可读写的缓存会返回缓存对象的拷贝（通过序列化）。这会慢一些，但是安全，因此默认是false。
       boolean readWrite = !context.getBooleanAttribute("readOnly", false);
+      // 设置是否是阻塞缓存，如果是 true ，则在创建缓存的时候会包装一层 BlockingCache 。默认为 false
       boolean blocking = context.getBooleanAttribute("blocking", false);
       Properties props = context.getChildrenAsProperties();
       // 此方法构建了一个新的 Cache 对象并设置到了 configuration 中。

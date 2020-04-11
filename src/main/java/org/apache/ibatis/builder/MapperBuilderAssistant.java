@@ -109,10 +109,12 @@ public class MapperBuilderAssistant extends BaseBuilder {
     }
     try {
       unresolvedCacheRef = true;
+      // 取传入 namespace 的 Cache 对象
       Cache cache = configuration.getCache(namespace);
       if (cache == null) {
         throw new IncompleteElementException("No cache for namespace '" + namespace + "' could be found.");
       }
+      // 跟当前绑定
       currentCache = cache;
       unresolvedCacheRef = false;
       return cache;
@@ -130,8 +132,11 @@ public class MapperBuilderAssistant extends BaseBuilder {
       Properties props) {
     // 此处使用建造者模式创建了 Cache，并且绑定了当前 Mapper 的命名空间并作为此 Cache 的 ID。
     Cache cache = new CacheBuilder(currentNamespace)
+        // 缓存实现类
         .implementation(valueOrDefault(typeClass, PerpetualCache.class))
+        // 包装类（缓存回收策略类）
         .addDecorator(valueOrDefault(evictionClass, LruCache.class))
+        // 清除时间
         .clearInterval(flushInterval)
         .size(size)
         .readWrite(readWrite)
@@ -287,7 +292,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
         .resultMaps(getStatementResultMaps(resultMap, resultType, id))
         .resultSetType(resultSetType)
         // 这里定义了是否清除缓存区，默认值取决于是否是 select 类型的 sql
-        // 如果是 select 的话，默认不清除缓存
+        // 如果是 select 的话，默认不清除缓存，不是 select 默认清除
         .flushCacheRequired(valueOrDefault(flushCache, !isSelect))
         // 这里定义了是否使用缓存，默认值也取决于是否是 select 类型的 sql
         // 如果是 select 的话，默认开启缓存

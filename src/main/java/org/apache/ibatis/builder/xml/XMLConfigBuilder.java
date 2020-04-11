@@ -104,9 +104,12 @@ public class XMLConfigBuilder extends BaseBuilder {
     try {
       //issue #117 read properties first
       propertiesElement(root.evalNode("properties"));
+
+      // 解析配置文件里的 setting 标签
       Properties settings = settingsAsProperties(root.evalNode("settings"));
       loadCustomVfs(settings);
       loadCustomLogImpl(settings);
+      // 生成别名 map 放进 configuration 中后备使用
       typeAliasesElement(root.evalNode("typeAliases"));
       pluginElement(root.evalNode("plugins"));
       objectFactoryElement(root.evalNode("objectFactory"));
@@ -116,13 +119,22 @@ public class XMLConfigBuilder extends BaseBuilder {
       // read it after objectFactory and objectWrapperFactory issue #631
       environmentsElement(root.evalNode("environments"));
       databaseIdProviderElement(root.evalNode("databaseIdProvider"));
+      // 加载类型处理器，生成 typeHandlerRegistry 类，类中维护了一个 HashMap
+      // 以键值对形式存储每个类型的 typeHandler 如 Boolean.class -> new BooleanTypeHandler()
       typeHandlerElement(root.evalNode("typeHandlers"));
+
+      // 解析配置文件里的 mappers 标签
       mapperElement(root.evalNode("mappers"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
     }
   }
 
+  /**
+   * 把 settings 标签的所有配置加载成 Properties
+   * @param context
+   * @return
+   */
   private Properties settingsAsProperties(XNode context) {
     if (context == null) {
       return new Properties();

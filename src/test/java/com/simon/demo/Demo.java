@@ -15,20 +15,27 @@ import java.util.List;
  */
 public class Demo {
   public static void main(String[] args) throws IOException {
+
     String resource = "mybatis/mybatis-config.xml";
     InputStream inputStream = Resources.getResourceAsStream(resource);
     SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(inputStream);
     SqlSession sqlSession1 = sqlSessionFactory.openSession();
     SqlSession sqlSession2 = sqlSessionFactory.openSession();
 
-    List<BookInfo> bookInfo1 = sqlSession1.selectList("com.simon.demo.TestMapper.selectBookInfo");
-//    sqlSession1.close();
+    List<BookInfo> bookInfoList1 = sqlSession1.selectList("com.simon.demo.TestMapper.selectBookInfo");
+    System.out.println(" sqlSession 1 query 1 ----------------------------- " + bookInfoList1);
+
+    List<BookInfo> bookInfoList2 = sqlSession1.selectList("com.simon.demo.TestMapper.selectBookInfo");
+    System.out.println("sqlSession 1 query 2 -----------------------------" + bookInfoList2);
+
     sqlSession1.commit();
-    System.out.println(bookInfo1);
+    System.out.println("sqlSession 1 commit -----------------------------");
 
-    List<BookInfo> bookInfo2 = sqlSession2.selectList("com.simon.demo.TestMapper.selectBookInfo");
-    System.out.println(bookInfo2);
-    sqlSession2.close();
+    List<BookInfo> bookInfoList3 = sqlSession2.selectList("com.simon.demo.TestMapper.selectBookInfo");
+    System.out.println("sqlSession 2 query 1 ----------------------------- " + bookInfoList3);
 
+    sqlSession1.insert("com.simon.demo.TestMapper.insertBookInfo");
+    sqlSession1.update("com.simon.demo.TestMapper.updateBookInfo");
+    sqlSession1.delete("com.simon.demo.TestMapper.deleteBookInfo");
   }
 }

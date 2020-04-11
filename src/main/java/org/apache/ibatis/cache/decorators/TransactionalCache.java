@@ -67,10 +67,11 @@ public class TransactionalCache implements Cache {
     // 注意这里拿是在 delegate 中拿的而不是 entriesToAddOnCommit 中
     Object object = delegate.getObject(key);
     if (object == null) {
-      // 判断从 Cache 中没拿出想要的对象来，这里就加入到 丢失 map 里
+      // 记录未命中缓存的 CacheKey，后面 commit 的时候会放置一个 null 值进主缓存
       entriesMissedInCache.add(key);
     }
-    // issue #146
+    // issue #146: https://github.com/mybatis/mybatis-3/issues/146
+    // 这里是防止 事务提交后清除缓存 这个动作已经执行了，但是缓存中还是能拿到东西。
     if (clearOnCommit) {
       return null;
     } else {
@@ -92,7 +93,9 @@ public class TransactionalCache implements Cache {
 
   @Override
   public void clear() {
+    // 提交时清除的 标志位
     clearOnCommit = true;
+    // 当前内部缓存清除
     entriesToAddOnCommit.clear();
   }
 
@@ -126,6 +129,8 @@ public class TransactionalCache implements Cache {
       delegate.putObject(entry.getKey(), entry.getValue());
     }
     for (Object entry : entriesMissedInCache) {
+      // 如果未命中的 CacheKey 在 当前内部缓存中没有的话，则放置一个 null 进主缓存
+      // 目的应该是防止缓存击穿（大量查询一个不存在的值）
       if (!entriesToAddOnCommit.containsKey(entry)) {
         delegate.putObject(entry, null);
       }

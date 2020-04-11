@@ -73,7 +73,9 @@ public class CachingExecutor implements Executor {
 
   @Override
   public int update(MappedStatement ms, Object parameterObject) throws SQLException {
+    // 先根据需要看是否清除缓存
     flushCacheIfRequired(ms);
+    // 在调用 被包装类的 update 方法
     return delegate.update(ms, parameterObject);
   }
 
@@ -98,13 +100,14 @@ public class CachingExecutor implements Executor {
     // 如果有标签，在读取 Mapper 文件时会创建 Cache 对象来存储这个 Mapper 文件中所有需要缓存的东西
     Cache cache = ms.getCache();
     if (cache != null) {
+      // 如果标签属性上标注了 flushCache="true" ,这里会先清空缓存
       flushCacheIfRequired(ms);
       if (ms.isUseCache() && resultHandler == null) {
         // 确定本条不是一个有 OutParams 的存储过程，否则抛出异常
         ensureNoOutParams(ms, boundSql);
         @SuppressWarnings("unchecked")
         // 这里 TransactionalCacheManager 维护了一个以 Cache 为键，TransactionalCache 为值的一个 Map
-        // 从 cache 中拿值
+        // 内部方法是尝试从 cache 中拿值
         List<E> list = (List<E>) tcm.getObject(cache, key);
         if (list == null) {
           // 这里的 delegate 代表的是根据ExecutorType创建的几大执行器，例如 SimpleExecutor。
@@ -174,8 +177,14 @@ public class CachingExecutor implements Executor {
   }
 
   private void flushCacheIfRequired(MappedStatement ms) {
+    // 获取当前缓存
     Cache cache = ms.getCache();
+    // 除非配置，不然 insert | update | delete 三大标签的 flushCacheRequired 默认为 true
+    // 这里可以看加载生成 Mapper 的默认赋值 ->
+    // org.apache.ibatis.builder.xml.XMLStatementBuilder.parseStatementNode ->
+    // org.apache.ibatis.builder.MapperBuilderAssistant.addMappedStatement
     if (cache != null && ms.isFlushCacheRequired()) {
+      // 调用缓存清除方法
       tcm.clear(cache);
     }
   }

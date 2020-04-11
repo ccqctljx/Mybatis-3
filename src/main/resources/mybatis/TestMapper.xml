@@ -6,12 +6,16 @@
 
   <cache/>
 
-  <select id="selectBookInfo" useCache="true" resultType="com.simon.demo.BookInfo">
+  <select id="selectBookInfo" useCache="true" resultType="com.simon.demo.BookInfo" >
     select * from book_info
   </select>
 
   <select id="selectBookInfoById" useCache="true" resultType="com.simon.demo.BookInfo">
     select * from book_info where book_id = #{id}
   </select>
+
+  <insert id="insertBookInfo">
+    insert into book_info (book_name, book_author, data_source, product_data) values ('书籍n', '作者n', database(), now());
+  </insert>
 
 </mapper>

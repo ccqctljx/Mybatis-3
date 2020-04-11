@@ -173,6 +173,7 @@ public abstract class BaseExecutor implements Executor {
       // issue #601
       deferredLoads.clear();
       // 这里判断缓存范围如果是 STATEMENT 级别的话，清空本地缓存
+      // 即 <setting name="localCacheScope" value="STATEMENT"/>
       if (configuration.getLocalCacheScope() == LocalCacheScope.STATEMENT) {
         // issue #482
         clearLocalCache();
@@ -205,33 +206,52 @@ public abstract class BaseExecutor implements Executor {
     if (closed) {
       throw new ExecutorException("Executor was closed.");
     }
+    // 新建一个 CacheKey，并更新 cacheKey 的 hashcode
     CacheKey cacheKey = new CacheKey();
+    // 附加计算当前 sql 的 id，即 <select id = "xxxx"><select>
     cacheKey.update(ms.getId());
+    // 附加计算分页中的 offset
     cacheKey.update(rowBounds.getOffset());
+    // 附加计算分页中的 limit
     cacheKey.update(rowBounds.getLimit());
+    // 附加计算 sql 语句
     cacheKey.update(boundSql.getSql());
+    // 取到参数映射
     List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();
+    // 拿到配置中加载好的 处理类 注册簿，内部维护了一个 HashMap
+    // 加载步骤为 org.apache.ibatis.builder.xml.XMLConfigBuilder.parseConfiguration 方法中的 typeHandlerElement 方法
+    // 以键值对形式存储每个类型的 typeHandler 如 Boolean.class -> new BooleanTypeHandler()
     TypeHandlerRegistry typeHandlerRegistry = ms.getConfiguration().getTypeHandlerRegistry();
     // mimic DefaultParameterHandler logic
+    // 模仿DefaultParameterHandler逻辑
     for (ParameterMapping parameterMapping : parameterMappings) {
+      // 判断这里的参数不是存储过程的 out 类参数
       if (parameterMapping.getMode() != ParameterMode.OUT) {
         Object value;
+        // 拿到属性名称
         String propertyName = parameterMapping.getProperty();
         if (boundSql.hasAdditionalParameter(propertyName)) {
+          // 如果有附加参数，取出附加参数
           value = boundSql.getAdditionalParameter(propertyName);
         } else if (parameterObject == null) {
+          // 参数为空的情况
           value = null;
         } else if (typeHandlerRegistry.hasTypeHandler(parameterObject.getClass())) {
+          // 如果有相应的类型处理器，参数为本身
           value = parameterObject;
         } else {
+          // 创建一个 MetaObject
           MetaObject metaObject = configuration.newMetaObject(parameterObject);
           value = metaObject.getValue(propertyName);
         }
+        // 将参数也附加到 CacheKey 的 hashcode 计算中
         cacheKey.update(value);
       }
     }
     if (configuration.getEnvironment() != null) {
+      // 如果配置文件中 environment 标签不为空
       // issue #176
+      // 再加上当前环境的 id 即 <environment id="development">
       cacheKey.update(configuration.getEnvironment().getId());
     }
     return cacheKey;
@@ -340,7 +360,7 @@ public abstract class BaseExecutor implements Executor {
     // 这里把 list 存到本地缓存中
     localCache.putObject(key, list);
     if (ms.getStatementType() == StatementType.CALLABLE) {
-      // 当 statementType="CALLABLE"的时候，也就是调用存储过程的时候，设置调用参数
+      // 当 statementType="CALLABLE"的时候，也就是调用存储过程的时候，设置 out 类参数
       localOutputParameterCache.putObject(key, parameter);
     }
     return list;
